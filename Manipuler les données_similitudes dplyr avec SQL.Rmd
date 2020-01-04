@@ -1,0 +1,306 @@
+---
+title: 'Manipuler les données : Similitudes dplyr avec SQL'
+author: "Yacine Hafiane"
+date: "4 janvier 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Les données utilisées 
+
+Les tables de la bases de données ont été exportées afin d'être importé séparément sous R, et transformées sous dplyr. Elles sont disponibles sous le lien : https://drive.google.com/open?id=1gdVgGkx3Tu3QT3ToFdQcpwHLNy-yCd6u
+
+L'ERD (Entity Relationship Diagram) ou schéma de la bdd Sakila DVD Rent a été joint aux tables, sous le nom "dvd-rental-erd-2.pdf" 
+
+1. Charger les packages
+```{r }
+library(tidyverse)
+library(readr)
+```
+
+Importer les données : 
+Une fois les données téléchargées en local. Importez les dans R en veillant à changer l'URL "C/Documents/table_name.csv" pour mettre celle de leur emplacement sur votre machine. 
+
+```{r }
+actor <- as_tibble(read.csv2("C/Documents/actor.csv", header = TRUE, sep = ","))
+address <- as_tibble(read.csv2("C/Documents/address.csv", header = TRUE, sep = ","))
+category <- as_tibble(read.csv2("C/Documents/category.csv", header = TRUE, sep = ","))
+city <- as_tibble(read.csv2("C/Documents/city.csv", header = TRUE, sep = ","))
+country <- as_tibble(read.csv2("C/Documents/country.csv", header = TRUE, sep = ","))
+customer <- as_tibble(read.csv2("C/Documents/customer.csv", header = TRUE, sep = ","))
+film <- as_tibble(read.csv2("C/Documents/film.csv", header = TRUE, sep = ","))
+film_actor <- as_tibble(read.csv2("C/Documents/film_actor.csv", header = TRUE, sep = ","))
+film_category <- as_tibble(read.csv2("C/Documents/film_category.csv", header = TRUE, sep = ","))
+inventory <- as_tibble(read.csv2("C/Documents/inventory.csv", header = TRUE, sep = ","))
+language <- as_tibble(read.csv2("C/Documents/language.csv", header = TRUE, sep = ","))
+payment <- as_tibble(read.csv2("C/Documents/payment.csv", header = TRUE, sep = ","))
+rental <- as_tibble(read.csv2("C/Documents/rental.csv", header = TRUE, sep = ","))
+staff <- as_tibble(read.csv2("C/Documents/staff.csv", header = TRUE, sep = ","))
+store <- as_tibble(read.csv2("C/Documents/store.csv", header = TRUE, sep = ","))
+
+```
+
+
+2. Data wrangling: dplyr
+Sélectionner des variables  
+```{r }
+customer %>%
+  select(customer_id, 
+         first_name,
+         last_name ) 
+```
+
+
+Filrer les observations
+```{r }
+# filter 1 
+customer %>%
+  select(customer_id, 
+         first_name,
+         last_name,
+         active) %>%
+  filter(active == 1 )
+
+# filter  2
+customer %>%
+  filter(active == 1 ) %>%
+  select(customer_id, 
+         first_name,
+         last_name,
+         active) 
+```
+
+Créer de nouvelles variables 
+```{r }
+# mutate 1
+customer %>%
+  select(first_name,
+         last_name,
+         active) %>%
+  filter(active == 1 ) %>%
+  mutate(Name = paste(first_name, last_name))
+```
+
+
+
+```{r }
+# mutate 2 : n'inclut pas la nouvelle variable 
+customer %>%
+  mutate(Name = paste(first_name, " ", last_name)) %>%
+  select(first_name,
+         last_name,
+         active) %>%
+  filter(active == 1 )
+```
+
+
+```{r }
+# mutate 3 
+customer %>%
+  select(first_name,
+         last_name,
+         active) %>%
+  mutate(Name = paste(first_name, last_name)) %>%
+  filter(active == 1 )
+```
+
+Agréger : group_by and summarise 
+```{r }
+  
+is.numeric(payment$amount) # test 
+class(payment$amount)
+payment$amount <- as.numeric(payment$amount)
+
+# 1*1 
+payment %>% 
+  select(customer_id, 
+         amount) %>%
+  summarise(Moyenne = round(mean(amount),2)) 
+
+# 1* N 
+payment %>% 
+  select(customer_id, 
+         amount) %>%
+  summarise(Moyenne = round(mean(amount),2), 
+            Min = round(min(amount),2), 
+            Max = round(max(amount),2), 
+            Ecart_T = round(sd(amount),2)) 
+# N * 1 
+payment %>% 
+  select(customer_id, 
+         amount) %>% 
+  group_by(customer_id) %>% 
+  summarise(Moyenne = round(mean(amount),2)) 
+
+# N * N 
+payment %>% 
+  select(customer_id, 
+         amount) %>% 
+  group_by(customer_id) %>% 
+  summarise(Moyenne = round(mean(amount),2), 
+            Min = round(min(amount),2), 
+            Max = round(max(amount),2), 
+            Ecart_T = round(sd(amount),2)) 
+
+```
+
+Trier les données 
+```{r }
+
+# arrange 1 
+payment %>% 
+  select( customer_id, amount) %>%
+  group_by( customer_id) %>% 
+  summarise( 
+    Moyenne = mean(amount)
+  ) %>% 
+  arrange( desc(Moyenne) )
+
+```
+
+
+```{r }
+
+# arrange 2 
+payment %>% 
+  select( customer_id, amount) %>%
+  group_by( customer_id) %>% 
+  summarise( 
+    Moyenne = mean(amount)
+  ) %>% 
+  arrange( Moyenne )
+
+```
+
+
+```{r }
+# arrange 3 
+payment %>% 
+  select( customer_id, amount) %>%
+  group_by( customer_id) %>% 
+  summarise( 
+    Moyenne = mean(amount), 
+    Ecart_T = sd(amount)
+  ) %>% 
+  arrange( Moyenne, Ecart_T)
+
+```
+
+
+Réaliser des jointures : 
+```{r }
+# Inner join 
+customer_amount <-inner_join(customer, 
+                             payment, 
+                             by =c('customer_id'='customer_id'))
+```
+
+
+```{r }
+# left join 
+customer_amount2 <-left_join(customer, payment, 
+                             by =c('customer_id'='customer_id'))
+
+```
+
+```{r }
+# right join 
+customer_amount2 <-right_join(customer, payment, 
+                             by =c('customer_id'='customer_id'))
+
+```
+
+Réaliser des opérations sur la nouvelle table issue de la jointure (dans ce cas, les trois types de jointures retournent le même nombre de lignes) : 
+```{r }
+# Transform & resume the JOINED table 
+customer_amount %>% 
+  select(first_name, last_name, amount) %>%
+  mutate(Name = paste(first_name, last_name)) %>%
+  group_by(Name) %>% 
+  summarise(Count = n(),
+            Moy = round(mean(as.numeric(amount)), 2), 
+            Ecart_T = round(sd(as.numeric(amount)), 2)) %>%
+  arrange(desc(Count)) %>% 
+  filter(Count > 35)
+
+```
+
+
+3. Se connecter à la base de données Sakila DVD Rent 
+Charger les packages : 
+```{r }
+library(DBI)
+library(RPostgres) # DBI le charge automatiquement 
+```
+
+Se connecter à la base de donnés Sakila DVD Rent : 
+Si vous souhaitez télécharger la base de données (voir le lien dans les slids de la présentation), vous devez d'abord installer et configurer un SGBD ou DBMS. Je vous recommande Postgres de par sa documentation détaillée.   
+Notez que dans ce cas, la base de données est en local. Ma machine est le client et le server (d'où le host = "localhost"). Vous pouvez rencontrer des cas où les bd sont sur le cloud. Il faudra mettre l'URL adéquate (host = URL)
+```{r }
+con <- dbConnect(RPostgres::Postgres(), 
+                  dbname = "dvdrental",
+                  host = "localhost", 
+                  port = 5432, 
+                  user = "postgres", 
+                  password = "my_password"
+)
+
+```
+
+Lister les tables post connection : 
+```{r }
+# list table 
+dbListTables(con)
+
+```
+
+Faire des requêtes SQL à partir de R : 
+```{r }
+requete1 <- dbSendQuery(con, 
+                          "SELECT * FROM customer")
+# Utiliser le résultat de la requête : 
+dbFetch(requete1)
+# effacer le résultat de la requête SQL 
+dbClearResult(requete1) 
+
+```
+
+Transformer les différentes tables de la BD Sakila DVD Rent en tibble avec dplyr::tbl()
+```{r }
+customer <- dplyr::tbl(con, "customer")
+payment <- dplyr::tbl(con, "payment")
+store <- dplyr::tbl(con, "store")
+
+```
+Vous pouvez faire l'exercice pour les autres tables. 
+
+Intéroger la base de données avec dplyr (R devient UI, dbplyr est le package back end de dplyr ici. Notez qu'il est chargé avec dplyr automatiquement)
+Requête 01 : 
+```{r }
+customer %>% 
+  select(customer_id, first_name, last_name, active) %>% 
+  mutate(Name = paste(first_name, last_name))
+
+```
+
+
+Requête 02 : 
+```{r }
+payment %>% 
+  select(customer_id, amount) %>%
+  group_by(customer_id) %>%
+  summarise(Moy = round(mean(amount), 2), 
+            Ecart_T = round(sd(amount), 2))
+```
+
+
+
+
+
+
+
+
+
